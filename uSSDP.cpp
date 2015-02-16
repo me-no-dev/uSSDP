@@ -10,18 +10,15 @@ uSSDP::uSSDP(SSDP_DEVICE &device){
 	this->_uri = new char[URI_SIZE];
 	this->_device = device;
 
-	server = new EthernetUDP();
+  _server.begin(SSDP_PORT);
 }
 
 uSSDP::~uSSDP(){
 	delete [] _uri;
-	delete server;
 }
 
 uint8_t uSSDP::process(){
-	server->begin(SSDP_PORT);
-
-	if(server->parsePacket() > 0){
+    if(_server.parsePacket() > 0){
 		memset(_uri, 0, sizeof _uri);
 		memset(&_head, 0, sizeof _head);
 
@@ -37,11 +34,11 @@ uint8_t uSSDP::process(){
     	char key[HEAD_SIZE] = {0};
     	char mx[3] = {0};
 
-    	while(server->available() > 0){
-    		char c = server->read();
+    	while(_server.available() > 0){
+    		char c = _server.read();
 
         	(c == '\r' || c == '\n') ? cr++ : cr = 0;
-        	if(c == 'X') continue;
+        	//if(c == 'X') ;
 
         	switch(state){
         		case METHOD:
@@ -86,14 +83,13 @@ uint8_t uSSDP::process(){
             		}
             		break;
         		case STOP:
-        			Serial.println("STOP");
-            		//server->flush();
-            		break;
+                    _server.flush();
+                    //_server.stop();
+                    break;
             }
     	}
 		return 1;
 	}
-	//server->stop();
 	return 0;
 }
 
@@ -110,39 +106,44 @@ SSDP_HEADER uSSDP::head(){
 }
 
 void uSSDP::send(uint8_t type){
-	uint8_t success;
-	do{
-		success = server->beginPacket(server->remoteIP(), server->remotePort());
-  		Serial.print(F("Sending Response to "));
-  		Serial.print(server->remoteIP());
-  		Serial.print(F(":"));
-  		Serial.println(server->remotePort());
-	}while(!success);
-
 	if(type == SSDP_RESPONSE){
-		server->println("HTTP/1.1 200 OK");
-		server->println("EXT:");
-		server->println("ST: upnp:rootdevice");
+        Serial.print(F("Sending Response to "));
+        Serial.print(_server.remoteIP());
+        Serial.print(F(":"));
+        Serial.println(_server.remotePort());
+
+        _server.beginPacket(_server.remoteIP(), _server.remotePort());
+		_server.println("HTTP/1.1 200 OK");
+		_server.println("EXT:");
+		_server.println("ST: upnp:rootdevice");
 	}else if(type == SSDP_NOTIFY){
-		server->println("NOTIFY * HTTP/1.1");
-		server->println("HOST: 239.255.255.250:1900");
-		server->println("NT: upnp:rootdevice");
-		server->println("NTS: ssdp:alive");
+        Serial.print(F("Sending Notify to "));
+        Serial.print(IPAddress(239, 255, 255, 250));
+        Serial.print(F(":"));
+        Serial.println(SSDP_PORT);
+
+        _server.beginPacket(IPAddress(239, 255, 255, 250), SSDP_PORT);
+		_server.println("NOTIFY * HTTP/1.1");
+		_server.println("HOST: 239.255.255.250:1900");
+		_server.println("NT: upnp:rootdevice");
+		_server.println("NTS: ssdp:alive");
 	}
 
-	server->print("CACHE-CONTROL: max-age=");
-	server->println(SSDP_INTERVAL);	
+	_server.print("CACHE-CONTROL: max-age=");
+	_server.println(SSDP_INTERVAL);	
 
-	server->print("SERVER: ");
-	server->println(_device.name);	
+	_server.print("SERVER: Arduino/1.0 UPNP/1.1 ");
+    _server.print(_device.model);
+    _server.print(" / ");
+    _server.println(_device.version);
 
-	server->print("USN: uuid:");
-	server->println(_device.uuid);
+	_server.print("USN: uuid:");
+	_server.println(_device.uuid);
 
-	server->print("LOCATION: http://");
-	server->print(_device.addr);
-	server->println("/ssdp/schema.xml");
+	_server.print("LOCATION: http://");
+	_server.print(_device.addr);
+	_server.println("/ssdp/schema.xml");
 
-	server->println();
-	server->endPacket();
+	_server.println();
+	_server.endPacket();
 }

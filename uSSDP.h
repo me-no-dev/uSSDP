@@ -12,8 +12,8 @@
 #include <Ethernet.h>
 #include <EthernetUdp.h>
 
-#define SSDP_INTERVAL 1200
-#define SSDP_PORT 1900
+#define SSDP_INTERVAL   1200
+#define SSDP_PORT       1900
 
 #define SSDP_RESPONSE   0
 #define SSDP_NOTIFY     1
@@ -34,7 +34,9 @@
 #define HEAD_AGENT_SIZE 48
 
 typedef struct SSDP_DEVICE{
-  char name[32] = "uSSDP Device";
+  uint8_t version = 1;
+  char model[16] = "uSSDP Device";
+  char name[32];
   char uuid[38];
   char addr[16];
 };
@@ -62,10 +64,7 @@ class uSSDP{
     SSDP_HEADER head();
 
   private:
-    EthernetUDP *server;
-
-    IPAddress _ipaddr = IPAddress(239, 255, 255, 250);
-
+    EthernetUDP _server;
     SSDP_HEADER _head;
     SSDP_DEVICE _device;
 
