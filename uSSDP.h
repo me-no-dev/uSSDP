@@ -34,8 +34,8 @@
 #define HEAD_AGENT_SIZE 48
 
 typedef struct SSDP_DEVICE{
-  uint8_t version = 1;
-  char model[16] = "uSSDP Device";
+  uint8_t version;
+  char model[16];
   char name[32];
   char uuid[38];
   char addr[16];

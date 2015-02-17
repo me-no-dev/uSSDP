@@ -11,8 +11,8 @@
 #define DEBUG 1
 
 uint8_t macaddr[6] = { 0x74,0x99,0x69,0x2D,0x30,0x40 };
-IPAddress ipaddr(192, 168, 0, 254);
-IPAddress gateway(192, 168, 0, 1);
+IPAddress ipaddr(192, 168, 10, 254);
+IPAddress gateway(192, 168, 10, 1);
 
 uHTTP *HTTP;
 uSSDP *SSDP;
@@ -42,9 +42,11 @@ void setup(){
 	Serial.println(F("Starting uSSDP..."));
 	#endif
 
+	strcpy_P(device.model, PSTR("DOMO"));
 	strcpy_P(device.name, PSTR("DOMO"));
 	strcpy_P(device.uuid, PSTR("abcdefgh-7dec-11d0-a765-7499692d3040"));
 	strcpy_P(device.addr, PSTR("192.168.0.254"));
+	device.version = 1;
 	SSDP = new uSSDP(device);
 }
 
@@ -89,7 +91,6 @@ void schema(EthernetClient *response){
 	response->println(F("\t\t<URLBase>/</URLBase>"));
 	response->println(F("\t\t<device>"));
 	response->println(F("\t\t\t<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>"));
-	//response->println(F("\t\t\t<presentationURL>/</presentationURL>"));
 	response->println("\t\t\t<friendlyName>" + String(device.name) + "</friendlyName>");	
 	response->println(F("\t\t\t<manufacturer>Nomad NT</manufacturer>"));
 	response->println(F("\t\t\t<manufacturerURL>http://nomadnt.com</manufacturerURL>"));
