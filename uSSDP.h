@@ -12,7 +12,7 @@
 #include <WiFiUdp.h>
 #include <uDevice.h>
 
-#define DEBUG           1
+#define DEBUG           0
 
 #define SSDP_INTERVAL   1200
 #define SSDP_PORT       1900
