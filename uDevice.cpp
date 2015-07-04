@@ -5,54 +5,62 @@
 */
 
 #include "uDevice.h"
+#include <ESP8266WiFi.h>
 
-uDevice::uDevice(const PROGMEM char *base, byte *mac){
-  _base = new char[UUIDBASE_SIZE];
-  _presentationURL = new char[PRESENTATIONURL_SIZE];
-  _friendlyName = new char[FRIENDLYNAME_SIZE];
-  _modelName = new char[MODELNAME_SIZE];
-  _serialNumber = new char[SERIALNUMBER_SIZE];
-  _manufacturer = new char[MANUFACTURER_SIZE];
-  _manufacturerURL = new char[MANUFACTURERURL_SIZE];
-
-  _mac = mac;
-  _deviceType = BASIC;
-  _modelNumber = {0, 0};
-
-  strcpy_P(_base, base);
+extern "C" {
+#include "mem.h"
 }
 
-uDevice::uDevice(const PROGMEM char *base, byte *mac, device_t deviceType){
-  _base = new char[UUIDBASE_SIZE];
-  _presentationURL = new char[PRESENTATIONURL_SIZE];
-  _friendlyName = new char[FRIENDLYNAME_SIZE];
-  _modelName = new char[MODELNAME_SIZE];
-  _serialNumber = new char[SERIALNUMBER_SIZE];
-  _manufacturer = new char[MANUFACTURER_SIZE];
-  _manufacturerURL = new char[MANUFACTURERURL_SIZE];
+uDevice::uDevice():
+_base(0),
+_mac(0),
+_presentationURL(0),
+_friendlyName(0),
+_modelName(0),
+_modelNumber(0),
+_serialNumber(0),
+_manufacturer(0),
+_manufacturerURL(0)
+{
+  _deviceType = BASIC;
+}
 
-  _mac = mac;
+void uDevice::begin(const char *base, byte *mac, device_t deviceType){
+  _base = (char*)os_malloc(UUIDBASE_SIZE);
+  _mac = (byte*)os_malloc(6);
+  _presentationURL = (char*)os_malloc(PRESENTATIONURL_SIZE);
+  _friendlyName = (char*)os_malloc(FRIENDLYNAME_SIZE);
+  _modelName = (char*)os_malloc(MODELNAME_SIZE);
+  _modelNumber = (version_t*)os_malloc(2);
+  _serialNumber = (char*)os_malloc(SERIALNUMBER_SIZE);
+  _manufacturer = (char*)os_malloc(MANUFACTURER_SIZE);
+  _manufacturerURL = (char*)os_malloc(MANUFACTURERURL_SIZE);
+
   _deviceType = deviceType;
-
-  strcpy_P(_base, base);
+  _modelNumber->major = 0;
+  _modelNumber->minor = 0;
+  memcpy(_mac, mac, 6);
+  strcpy(_base, base);
 }
 
 uDevice::~uDevice(){
-	delete [] _base;
-  delete [] _mac;
-  delete [] _presentationURL;
-  delete [] _friendlyName;
-  delete [] _modelName;
-  delete [] _serialNumber;
-  delete [] _manufacturer;
-  delete [] _manufacturerURL;
+	os_free(_base);
+  os_free(_mac);
+  os_free(_presentationURL);
+  os_free(_friendlyName);
+  os_free(_modelName);
+  os_free(_modelNumber);
+  os_free(_serialNumber);
+  os_free(_manufacturer);
+  os_free(_manufacturerURL);
 }
 
 char *uDevice::uuid(){
-  char *_uuid = new char[37];
+  char *_uuid = (char*)os_malloc(37);
   sprintf(_uuid, "%s-%02X%02X%02X%02X%02X%02X", _base, _mac[0], _mac[1], _mac[2], _mac[3], _mac[4], _mac[5]);
 	return _uuid;
 }
+
 
 device_t uDevice::deviceType(){
   return _deviceType;
@@ -62,107 +70,66 @@ void uDevice::deviceType(device_t deviceType){
   _deviceType = deviceType;
 }
 
+
 char *uDevice::presentationURL(){
   return _presentationURL;
 }
 
 void uDevice::presentationURL(char *presentationURL){
-  _presentationURL = presentationURL;
+  strcpy(_presentationURL, presentationURL);
 }
 
-void uDevice::presentationURL(const PROGMEM char *presentationURL){
-  strcpy_P(_presentationURL, presentationURL);
-}
-
-void uDevice::presentationURL(const __FlashStringHelper *presentationURL){
-  this->presentationURL((const PROGMEM char *) presentationURL);
-}
 
 char *uDevice::friendlyName(){
   return _friendlyName;
 }
 
 void uDevice::friendlyName(char *friendlyName){
-  _friendlyName = friendlyName;
+  strcpy(_friendlyName, friendlyName);
 }
 
-void uDevice::friendlyName(const PROGMEM char *friendlyName){
-  strcpy_P(_friendlyName, friendlyName);
-}
-
-void uDevice::friendlyName(const __FlashStringHelper *friendlyName){
-  this->friendlyName((const PROGMEM char *) friendlyName);
-}
 
 char *uDevice::modelName(){
   return _modelName;
 }
 
 void uDevice::modelName(char *modelName){
-  _modelName = modelName;
+  strcpy(_modelName, modelName);
 }
 
-void uDevice::modelName(const PROGMEM char *modelName){
-  strcpy_P(_modelName, modelName);
-}
 
-void uDevice::modelName(const __FlashStringHelper *modelName){
-  this->modelName((const PROGMEM char *) modelName);
-}
-
-version_t uDevice::modelNumber(){
+version_t *uDevice::modelNumber(){
   return _modelNumber;
 }
 
 void uDevice::modelNumber(uint8_t major, uint8_t minor){
-  _modelNumber.major = major;
-  _modelNumber.minor = minor;
+  _modelNumber->major = major;
+  _modelNumber->minor = minor;
 }
+
 
 char *uDevice::serialNumber(){
   return _serialNumber;
 }
 
 void uDevice::serialNumber(char *serialNumber){
-  _serialNumber = serialNumber;
+  strcpy(_serialNumber, serialNumber);
 }
 
-void uDevice::serialNumber(const PROGMEM char *serialNumber){
-  strcpy_P(_serialNumber, serialNumber);
-}
-
-void uDevice::serialNumber(const __FlashStringHelper *serialNumber){
-  this->serialNumber((const PROGMEM char *) serialNumber);
-}
 
 char *uDevice::manufacturer(){
   return _manufacturer;
 }
 
 void uDevice::manufacturer(char *manufacturer){
-  _manufacturer = manufacturer;
+  strcpy(_manufacturer, manufacturer);
 }
 
-void uDevice::manufacturer(const PROGMEM char *manufacturer){
-  strcpy_P(_manufacturer, manufacturer);
-}
-
-void uDevice::manufacturer(const __FlashStringHelper *manufacturer){
-  this->manufacturer((const PROGMEM char *) manufacturer);
-}
 
 char *uDevice::manufacturerURL(){
   return _manufacturerURL;
 }
 
 void uDevice::manufacturerURL(char *manufacturerURL){
-  _manufacturerURL = manufacturerURL;
-}
-
-void uDevice::manufacturerURL(const PROGMEM char *manufacturerURL){
-  strcpy_P(_manufacturerURL, manufacturerURL);
-}
-
-void uDevice::manufacturerURL(const __FlashStringHelper *manufacturerURL){
-  this->manufacturerURL((const PROGMEM char *) manufacturerURL);
+  strcpy(_manufacturerURL, manufacturerURL);
 }

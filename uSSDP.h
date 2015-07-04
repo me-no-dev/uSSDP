@@ -8,12 +8,11 @@
 #define uSSDP_H
 
 #include <Arduino.h>
-#include <SPI.h>
-#include <Ethernet.h>
-#include <EthernetUdp.h>
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
 #include <uDevice.h>
 
-#define DEBUG           0
+#define DEBUG           1
 
 #define SSDP_INTERVAL   1200
 #define SSDP_PORT       1900
@@ -28,15 +27,16 @@ class uSSDP{
   typedef enum {NONE, SEARCH, NOTIFY} method_t;
 
   public:
-    uSSDP(uDevice *device);
+    uSSDP();
     ~uSSDP();
 
+    void begin(uDevice *device);
     uint8_t process();
     void send(method_t method);
-    void schema(EthernetClient *client);
+    void schema(WiFiClient *client);
 
   private:
-    EthernetUDP _server;
+    WiFiUDP _server;
 
     uDevice *_device;
 

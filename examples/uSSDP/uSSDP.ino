@@ -5,66 +5,106 @@
  * This example code is in the public domain.
  **/
 
-#include <SPI.h>
-#include <Ethernet.h>
-#include <uHTTP.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <WiFiUDP.h>
 #include <uSSDP.h>
 
-#define DEBUG 1
+const char* host = "esp8266-ssdp";
+const char* ssid = "********";
+const char* password = "********";
 
-PROGMEM const char UUID_BASE[] = "abcdefgh-7dec-11d0-a765";
-byte macaddr[6] = { 0x74, 0x99, 0x69, 0x2D, 0x30, 0x40 };
-byte ip4addr[4] = { 192, 168, 0, 254 };
+WiFiUDP OTA;
+ESP8266WebServer HTTP(80);
+uDevice device;
+uSSDP SSDP;
 
-uDevice *device;
+void checkOTA(){
+  if (OTA.parsePacket()) {
+    
+    IPAddress remote = OTA.remoteIP();
+    int cmd  = OTA.parseInt();
+    int port = OTA.parseInt();
+    int size   = OTA.parseInt();
 
-uHTTP *HTTP;
-uSSDP *SSDP;
+    Serial.print("Update Start: ip:");
+    Serial.print(remote);
+    Serial.printf(", port:%d, size:%d\n", port, size);
+    uint32_t startTime = millis();
 
-EthernetClient *response;
-unsigned long time = 0;
+    //WiFiUDP::stopAll();
+    if(!Update.begin(size)){
+      Serial.println("Update Begin Error");
+      return;
+    }
+    WiFiClient client;
+    if (client.connect(remote, port)) {
+      Serial.setDebugOutput(true);
+      while(!Update.isFinished()) Update.write(client);
+      Serial.setDebugOutput(false);
+      if(Update.end()){
+        client.println("OK");
+        Serial.printf("Update Success: %u\nRebooting...\n", millis() - startTime);
+        ESP.restart();
+      } else {
+        Update.printError(client);
+        Update.printError(Serial);
+        MDNS.begin(host);
+      }
+    } else {
+      Serial.printf("Connect Failed: %u\n", millis() - startTime);
+    }
+  }
+}
 
 void setup(){
-	#if DEBUG > 0
-	Serial.begin(9600);
-	#endif
-
-	device = new uDevice(UUID_BASE, macaddr);
-	device->presentationURL(F("/"));
-	device->friendlyName(F("DOMO"));
-	device->modelName(F("DOMO"));
-	device->modelNumber(1, 0);
-	device->serialNumber(F("A0123456789"));
-	device->manufacturer(F("Nomad NT"));
-	device->manufacturerURL(F("http://nomadnt.com"));
-
-	if(!Ethernet.begin(macaddr)){
-		Ethernet.begin(macaddr, ip4addr);
-	}
-
-	#if DEBUG > 0
-	Serial.print(F("Starting uHTTP at "));
-	Serial.print(Ethernet.localIP());
-	Serial.print(F(":"));
+  Serial.begin(115200);
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if(WiFi.waitForConnectResult() != WL_CONNECTED){
+      Serial.println("WiFi Failed");
+      while(1) delay(100);
+  }
+  MDNS.begin(host);
+  MDNS.addService("arduino", "tcp", ota_port);
+  OTA.begin(ota_port);
+  
+	Serial.print("Starting HTTP at ");
+	Serial.print(WiFi.localIP());
+	Serial.print(":");
 	Serial.println(80);
-	#endif
-
-	HTTP = new uHTTP();
+  
+  HTTP.on("/ssdp/schema.xml", HTTP_GET, [](){
+    WiFiClient client = HTTP.client();
+    SSDP.schema(&client);
+    client.stop();
+  });
+	HTTP.begin();
+  MDNS.addService("http", "tcp", 80);
 	
-	#if DEBUG > 0
-	Serial.println(F("Starting uSSDP..."));
-	#endif
+  byte mac[6];
+  char base[UUIDBASE_SIZE];
+  WiFi.macAddress(mac);
+  sprintf(base, "esp8266x-%02x%02x-%02x%02x-%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-	SSDP = new uSSDP(device);
+  Serial.printf("Starting uSSDP: BASE: %s, MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", base, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  device.begin((const char*)base, mac);
+  device.serialNumber((char*)"A0123456789");
+  device.manufacturer((char*)"Espressif");
+  device.manufacturerURL((char*)"http://espressif.com");
+  device.modelName((char*)"ESP-12e");
+  device.modelNumber(1, 0);
+  device.friendlyName((char*)"ESP8266");
+  device.presentationURL((char*)"/");
+	SSDP.begin(&device);
+  Serial.println("SSDP Started");
 }
 
 void loop(){
-	// Process HTTP request
-	if((response = HTTP->process())){
-		if(HTTP->uri_equals(F("/ssdp/schema.xml"))) SSDP->schema(response);
-		response->stop();
-	}
-
-	// Process SSDP request
-	SSDP->process();
+  checkOTA();
+  HTTP.handleClient();
+	SSDP.process();
+  delay(1);
 }

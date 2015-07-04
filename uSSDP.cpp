@@ -6,14 +6,18 @@
 
 #include "uSSDP.h"
 
-uSSDP::uSSDP(uDevice *device){
-  _device = device;
+uSSDP::uSSDP(): _device(0) {
   _pending = false;
-  _server.begin(SSDP_PORT);
 }
 
 uSSDP::~uSSDP(){
   delete _device;
+}
+
+void uSSDP::begin(uDevice *device){
+  _device = device;
+  _pending = false;
+  _server.begin(SSDP_PORT);
 }
 
 uint8_t uSSDP::process(){
@@ -39,8 +43,8 @@ uint8_t uSSDP::process(){
       switch(state){
         case METHOD:
           if(c == ' '){
-            if(strcmp_P(buffer, PSTR("M-SEARCH")) == 0) method = SEARCH;
-            else if(strcmp_P(buffer, PSTR("NOTIFY")) == 0) method = NOTIFY;
+            if(strcmp(buffer, "M-SEARCH") == 0) method = SEARCH;
+            else if(strcmp(buffer, "NOTIFY") == 0) method = NOTIFY;
             
             if(method == NONE) state = ABORT;
             else state = URI; 
@@ -50,7 +54,7 @@ uint8_t uSSDP::process(){
           break;
         case URI:
           if(c == ' '){
-            if(strcmp_P(buffer, PSTR("*"))) state = ABORT;
+            if(strcmp(buffer, "*")) state = ABORT;
             else state = PROTO; 
             cursor = 0; 
           }else if(cursor < URI_SIZE - 1){ buffer[cursor++] = c; buffer[cursor] = '\0'; }
@@ -72,7 +76,7 @@ uint8_t uSSDP::process(){
                 //strncpy(_head.man, buffer, HEAD_VAL_SIZE);
                 break;
               case ST:
-                if(strcmp_P(buffer, PSTR("ssdp:all"))){
+                if(strcmp(buffer, "ssdp:all")){
                   state = ABORT;
                   #if DEBUG > 0
                   Serial.print("REJECT: ");
@@ -88,9 +92,9 @@ uint8_t uSSDP::process(){
             if(state != ABORT){ state = KEY; header = START; cursor = 0; }
           }else if(c != '\r' && c != '\n'){
             if(header == START){
-              if(strncmp_P(buffer, PSTR("MA"), 2) == 0) header = MAN;
-              else if(strcmp_P(buffer, PSTR("ST")) == 0) header = ST;
-              else if(strcmp_P(buffer, PSTR("MX")) == 0) header = MX;
+              if(strncmp(buffer, "MA", 2) == 0) header = MAN;
+              else if(strcmp(buffer, "ST") == 0) header = ST;
+              else if(strcmp(buffer, "MX") == 0) header = MX;
             }
             
             if(cursor < BUFFER_SIZE - 1){ buffer[cursor++] = c; buffer[cursor] = '\0'; }
@@ -115,116 +119,116 @@ uint8_t uSSDP::process(){
 }
 
 void uSSDP::send(method_t method){
-  version_t modelNumber = _device->modelNumber();
+  version_t *modelNumber = _device->modelNumber();
   byte ssdp[4] = {239, 255, 255, 250};
 
 	if(method == NONE){
     #if DEBUG > 0
-    Serial.print(F("Sending Response to "));
+    Serial.print("Sending Response to ");
     Serial.print(_server.remoteIP());
-    Serial.print(F(":"));
+    Serial.print(":");
     Serial.println(_server.remotePort());
     #endif
 
     _server.beginPacket(_server.remoteIP(), _server.remotePort());
-		_server.println(F("HTTP/1.1 200 OK"));
-		_server.println(F("EXT:"));
-		_server.println(F("ST: upnp:rootdevice"));
+		_server.println("HTTP/1.1 200 OK");
+		_server.println("EXT:");
+		_server.println("ST: upnp:rootdevice");
 	}else if(method == NOTIFY){
     #if DEBUG > 0
-    Serial.println(F("Sending Notify to 239.255.255.250:1900"));
+    Serial.println("Sending Notify to 239.255.255.250:1900");
     #endif
 
     _server.beginPacket(ssdp, SSDP_PORT);
-		_server.println(F("NOTIFY * HTTP/1.1"));
-		_server.println(F("HOST: 239.255.255.250:1900"));
-		_server.println(F("NT: upnp:rootdevice"));
-		_server.println(F("NTS: ssdp:alive"));
+		_server.println("NOTIFY * HTTP/1.1");
+		_server.println("HOST: 239.255.255.250:1900");
+		_server.println("NT: upnp:rootdevice");
+		_server.println("NTS: ssdp:alive");
 	}
 
-	_server.print(F("CACHE-CONTROL: max-age="));
+	_server.print("CACHE-CONTROL: max-age=");
 	_server.println(SSDP_INTERVAL);	
 
-  _server.print(F("SERVER: Arduino/1.0 UPNP/1.1 "));
+  _server.print("SERVER: Arduino/1.0 UPNP/1.1 ");
   _server.print(_device->modelName());
-  if(modelNumber.major > 0 || modelNumber.minor > 0){
-    _server.print(F("/"));
-    _server.print(modelNumber.major);
-    _server.print(F("."));
-    _server.print(modelNumber.minor);
+  if(modelNumber->major > 0 || modelNumber->minor > 0){
+    _server.print("/");
+    _server.print(modelNumber->major);
+    _server.print(".");
+    _server.print(modelNumber->minor);
   }
   _server.println();
   
-	_server.print(F("USN: uuid:"));
+	_server.print("USN: uuid:");
 	_server.println(_device->uuid());
 
-	_server.print(F("LOCATION: http://"));
-	_server.print(Ethernet.localIP());
-	_server.println(F("/ssdp/schema.xml"));
+	_server.print("LOCATION: http://");
+	_server.print(WiFi.localIP());
+	_server.println("/ssdp/schema.xml");
 	_server.println();
 
 	_server.endPacket();
 }
 
-void uSSDP::schema(EthernetClient *client){
-  client->println(F("HTTP/1.1 200 OK"));
-  client->println(F("Content-Type: text/xml"));
+void uSSDP::schema(WiFiClient *client){
+  client->println("HTTP/1.1 200 OK");
+  client->println("Content-Type: text/xml");
   client->println();
 
-  client->println(F("<?xml version=\"1.0\"?>"));
-  client->println(F("<root xmlns=\"urn:schemas-upnp-org:device-1-0\">"));
-  client->println(F("\t<specVersion>"));
-  client->println(F("\t\t<major>1</major>"));
-  client->println(F("\t\t<minor>0</minor>"));
-  client->println(F("\t</specVersion>"));
+  client->println("<?xml version=\"1.0\"?>");
+  client->println("<root xmlns=\"urn:schemas-upnp-org:device-1-0\">");
+  client->println("\t<specVersion>");
+  client->println("\t\t<major>1</major>");
+  client->println("\t\t<minor>0</minor>");
+  client->println("\t</specVersion>");
     
-  client->println(F("\t<device>"));
-  client->println(F("\t\t<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>"));
+  client->println("\t<device>");
+  client->println("\t\t<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>");
 
   if(strlen(_device->presentationURL())){
-    client->print(F("\t<presentationURL>"));
+    client->print("\t<presentationURL>");
     client->print(_device->presentationURL());
-    client->print(F("</presentationURL>\r\n"));
+    client->print("</presentationURL>\r\n");
   }
 
-  client->print(F("\t\t<friendlyName>"));
+  client->print("\t\t<friendlyName>");
   client->print(_device->friendlyName());
-  client->print(F("</friendlyName>\r\n"));
+  client->print("</friendlyName>\r\n");
 
-  client->print(F("\t\t<modelName>"));
+  client->print("\t\t<modelName>");
   client->print(_device->modelName());
-  client->print(F("</modelName>\r\n"));
+  client->print("</modelName>\r\n");
 
-  version_t modelNumber = _device->modelNumber();
+  version_t *modelNumber = _device->modelNumber();
 
-  if(modelNumber.major > 0 || modelNumber.minor > 0){
-    client->print(F("\t\t<modelNumber>"));
-    client->print(modelNumber.major);
-    client->print(F("."));
-    client->print(modelNumber.minor);
-    client->print(F("</modelNumber>\r\n"));
+  if(modelNumber->major > 0 || modelNumber->minor > 0){
+    client->print("\t\t<modelNumber>");
+    client->print(modelNumber->major);
+    client->print(".");
+    client->print(modelNumber->minor);
+    client->print("</modelNumber>\r\n");
   }
 
   if(strlen(_device->serialNumber())){
-    client->print(F("\t\t<serialNumber>"));
+    client->print("\t\t<serialNumber>");
     client->print(_device->serialNumber());
-    client->print(F("</serialNumber>\r\n"));
+    client->print("</serialNumber>\r\n");
   }
 
-  client->print(F("\t\t<manufacturer>"));
+  client->print("\t\t<manufacturer>");
   client->print(_device->manufacturer());
-  client->print(F("</manufacturer>\r\n"));
+  client->print("</manufacturer>\r\n");
 
   if(strlen(_device->manufacturerURL())){
-    client->print(F("\t\t<manufacturerURL>"));
+    client->print("\t\t<manufacturerURL>");
     client->print(_device->manufacturerURL());
-    client->print(F("</manufacturerURL>\r\n"));
+    client->print("</manufacturerURL>\r\n");
   }
 
-  client->print(F("\t\t<UDN>uuid:"));
+  client->print("\t\t<UDN>uuid:");
   client->print(_device->uuid());
-  client->print(F("</UDN>\r\n"));
+  client->print("</UDN>\r\n");
 
-  client->println(F("\t</device>"));
-  client->println(F("</root>"));
+  client->println("\t</device>");
+  client->println("</root>");
 }
