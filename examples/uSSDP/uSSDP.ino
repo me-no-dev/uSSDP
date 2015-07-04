@@ -15,48 +15,9 @@ const char* host = "esp8266-ssdp";
 const char* ssid = "********";
 const char* password = "********";
 
-WiFiUDP OTA;
 ESP8266WebServer HTTP(80);
 uDevice device;
 uSSDP SSDP;
-
-void checkOTA(){
-  if (OTA.parsePacket()) {
-    
-    IPAddress remote = OTA.remoteIP();
-    int cmd  = OTA.parseInt();
-    int port = OTA.parseInt();
-    int size   = OTA.parseInt();
-
-    Serial.print("Update Start: ip:");
-    Serial.print(remote);
-    Serial.printf(", port:%d, size:%d\n", port, size);
-    uint32_t startTime = millis();
-
-    //WiFiUDP::stopAll();
-    if(!Update.begin(size)){
-      Serial.println("Update Begin Error");
-      return;
-    }
-    WiFiClient client;
-    if (client.connect(remote, port)) {
-      Serial.setDebugOutput(true);
-      while(!Update.isFinished()) Update.write(client);
-      Serial.setDebugOutput(false);
-      if(Update.end()){
-        client.println("OK");
-        Serial.printf("Update Success: %u\nRebooting...\n", millis() - startTime);
-        ESP.restart();
-      } else {
-        Update.printError(client);
-        Update.printError(Serial);
-        MDNS.begin(host);
-      }
-    } else {
-      Serial.printf("Connect Failed: %u\n", millis() - startTime);
-    }
-  }
-}
 
 void setup(){
   Serial.begin(115200);
@@ -68,8 +29,6 @@ void setup(){
       while(1) delay(100);
   }
   MDNS.begin(host);
-  MDNS.addService("arduino", "tcp", ota_port);
-  OTA.begin(ota_port);
   
 	Serial.print("Starting HTTP at ");
 	Serial.print(WiFi.localIP());
@@ -103,7 +62,6 @@ void setup(){
 }
 
 void loop(){
-  checkOTA();
   HTTP.handleClient();
 	SSDP.process();
   delay(1);
