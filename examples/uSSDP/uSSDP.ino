@@ -6,12 +6,10 @@
  **/
 
 #include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <WiFiUDP.h>
 #include <uSSDP.h>
 
-const char* host = "esp8266-ssdp";
 const char* ssid = "********";
 const char* password = "********";
 
@@ -28,7 +26,6 @@ void setup(){
       Serial.println("WiFi Failed");
       while(1) delay(100);
   }
-  MDNS.begin(host);
   
 	Serial.print("Starting HTTP at ");
 	Serial.print(WiFi.localIP());
@@ -41,7 +38,6 @@ void setup(){
     client.stop();
   });
 	HTTP.begin();
-  MDNS.addService("http", "tcp", 80);
 	
   byte mac[6];
   char base[UUIDBASE_SIZE];
