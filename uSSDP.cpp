@@ -6,6 +6,14 @@
 
 #include "uSSDP.h"
 
+extern "C" {
+#include "ip_addr.h"
+#include "user_interface.h"
+}
+#include "lwip/igmp.h"
+
+static const IPAddress SSDP_MULTICAST_ADDR(239, 255, 255, 250);
+
 uSSDP::uSSDP(): _device(0) {
   _pending = false;
 }
@@ -17,6 +25,15 @@ uSSDP::~uSSDP(){
 void uSSDP::begin(uDevice *device){
   _device = device;
   _pending = false;
+  
+  struct ip_info staIpInfo;
+  wifi_get_ip_info(STATION_IF, &staIpInfo);
+  ip_addr_t ifaddr;
+  ifaddr.addr = staIpInfo.ip.addr;
+  ip_addr_t multicast_addr;
+  multicast_addr.addr = (uint32_t) SSDP_MULTICAST_ADDR;
+  igmp_joingroup(&ifaddr, &multicast_addr);
+  
   _server.begin(SSDP_PORT);
 }
 
