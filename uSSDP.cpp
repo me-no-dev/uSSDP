@@ -7,7 +7,6 @@
 #include "uSSDP.h"
 
 extern "C" {
-#include "ip_addr.h"
 #include "user_interface.h"
 }
 #include "lwip/igmp.h"
