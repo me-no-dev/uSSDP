@@ -35,7 +35,7 @@ class uDevice{
       begin(base, mac, BASIC);
     }
     
-    char *uuid();
+    String uuid();
 
     device_t deviceType();
     void deviceType(device_t deviceType);
